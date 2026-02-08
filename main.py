@@ -118,7 +118,7 @@ class MyBot(discord.Client):
 
     async def on_ready(self):
         print(f"Bot Sakuo opérationnel !")
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="L'appartement de Sakuo 🏠"))
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="𝙡'𝙖𝙥𝙥𝙖𝙧𝙩𝙚𝙢𝙚𝙣𝙩 𝙙𝙚 𝙨𝙖𝙠𝙪𝙤 🏠"))
 
     # --- FONCTION AUTOROLE ---
     async def on_member_join(self, member):
