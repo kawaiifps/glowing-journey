@@ -108,21 +108,32 @@ class MyBot(discord.Client):
     def __init__(self):
         super().__init__(intents=discord.Intents.all())
         self.tree = app_commands.CommandTree(self)
+
     async def setup_hook(self):
         self.add_view(TicketLauncher())
         self.add_view(TicketControl())
         self.add_view(RecrutementView())
         await self.tree.sync()
+
     async def on_ready(self):
         print(f"Bot Sakuo prêt !")
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="𝙡'𝙖𝙥𝙥𝙖𝙧𝙩𝙚𝙢𝙚𝙣𝙩 𝙙𝙚 𝙨𝙖𝙠𝙪𝙤 🏠"))
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="L'appartement de Sakuo 🏠"))
+
+    # --- BIENVENUE & AU REVOIR ---
     async def on_member_join(self, member):
         role = member.guild.get_role(AUTO_ROLE_ID)
-        if role: await member.add_roles(role)
+        if role: 
+            await member.add_roles(role)
         chan = member.guild.get_channel(WELCOME_CHAN_ID)
         if chan:
             embed = discord.Embed(title="✨ Bienvenue !", description=f"Bienvenue {member.mention} dans **L'appartement de Sakuo** !", color=0xff69b4)
+            embed.set_thumbnail(url=member.display_avatar.url)
             await chan.send(embed=embed)
+
+    async def on_member_remove(self, member):
+        chan = member.guild.get_channel(LEAVE_CHAN_ID)
+        if chan: 
+            await chan.send(f"👋 **{member.name}** a quitté l'appartement. À bientôt !")
 
 bot = MyBot()
 
