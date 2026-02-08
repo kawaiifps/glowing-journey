@@ -79,9 +79,9 @@ class TicketLauncher(discord.ui.View):
     @discord.ui.select(
         placeholder="Comment pouvons-nous vous aider ?",
         options=[
-            discord.SelectOption(label="Signaler un Bug", value="Bug", emoji="🛠️"),
-            discord.SelectOption(label="Suggestion", value="Idée", emoji="💡"),
-            discord.SelectOption(label="Plainte", value="Plainte", emoji="🚫")
+            discord.SelectOption(label="Signaler un Bug", value="Bug", emoji="🛠️", description="Un souci sur la map Rec Room ?"),
+            discord.SelectOption(label="Suggestion", value="Idée", emoji="💡", description="Une idée pour l'appartement ?"),
+            discord.SelectOption(label="Plainte", value="Plainte", emoji="🚫", description="Signaler un comportement.")
         ],
         custom_id="tkt_sakuo_v4"
     )
@@ -115,7 +115,7 @@ class MyBot(discord.Client):
         await self.tree.sync()
     async def on_ready(self):
         print(f"Bot Sakuo prêt !")
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="L'appartement de Sakuo 🏠"))
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="𝙡'𝙖𝙥𝙥𝙖𝙧𝙩𝙚𝙢𝙚𝙣𝙩 𝙙𝙚 𝙨𝙖𝙠𝙪𝙤 🏠"))
     async def on_member_join(self, member):
         role = member.guild.get_role(AUTO_ROLE_ID)
         if role: await member.add_roles(role)
@@ -126,7 +126,35 @@ class MyBot(discord.Client):
 
 bot = MyBot()
 
-# --- COMMANDES ---
+# --- COMMANDES MODÉRATION ---
+
+@bot.tree.command(name="warn", description="Avertir un membre")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def warn(interaction: discord.Interaction, membre: discord.Member, raison: str):
+    try: await membre.send(f"⚠️ Avertissement : **L'appartement de Sakuo**\nRaison : {raison}")
+    except: pass
+    await interaction.response.send_message(f"⚠️ {membre.mention} a été averti pour : {raison}")
+
+@bot.tree.command(name="timeout", description="Exclure temporairement")
+@app_commands.checks.has_permissions(moderate_members=True)
+async def timeout(interaction: discord.Interaction, membre: discord.Member, minutes: int, raison: str):
+    await membre.timeout(datetime.timedelta(minutes=minutes), reason=raison)
+    await interaction.response.send_message(f"⏳ {membre.mention} exclu {minutes} min. Raison : {raison}")
+
+@bot.tree.command(name="ban", description="Bannir un membre")
+@app_commands.checks.has_permissions(ban_members=True)
+async def ban(interaction: discord.Interaction, membre: discord.Member, raison: str):
+    await membre.ban(reason=raison)
+    await interaction.response.send_message(f"🔨 {membre.name} banni. Raison : {raison}")
+
+@bot.tree.command(name="clear", description="Supprimer des messages")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def clear(interaction: discord.Interaction, nombre: int):
+    await interaction.response.defer(ephemeral=True)
+    deleted = await interaction.channel.purge(limit=nombre)
+    await interaction.followup.send(f"✅ {len(deleted)} messages supprimés.", ephemeral=True)
+
+# --- COMMANDES SETUP ---
 
 @bot.tree.command(name="regles", description="Affiche le règlement de l'appartement")
 @app_commands.checks.has_permissions(administrator=True)
@@ -150,16 +178,11 @@ async def regles(interaction: discord.Interaction):
         ),
         color=0xff69b4
     )
-    embed.add_field(
-        name="🛡️ Sanctions", 
-        value="Tout manquement à ces règles pourra donner lieu à un avertissement, un timeout ou un bannissement définitif.",
-        inline=False
-    )
+    embed.add_field(name="🛡️ Sanctions", value="Tout manquement pourra donner lieu à un avertissement, un timeout ou un ban.", inline=False)
     embed.set_footer(text="En restant sur ce serveur, vous acceptez ce règlement.")
     embed.set_thumbnail(url=interaction.guild.icon.url if interaction.guild.icon else None)
-    
     await interaction.channel.send(embed=embed)
-    await interaction.response.send_message("✅ Le règlement a été posté !", ephemeral=True)
+    await interaction.response.send_message("✅ Règlement posté !", ephemeral=True)
 
 @bot.tree.command(name="setup_tickets", description="Déployer le panel de support")
 @app_commands.checks.has_permissions(administrator=True)
@@ -177,7 +200,7 @@ async def setup_tickets(interaction: discord.Interaction):
         ),
         color=0xff69b4
     )
-    embed.set_footer(text="Système de Support • Rec Room")
+    embed.set_footer(text="L'appartement de Sakuo • Support Client")
     await interaction.channel.send(embed=embed, view=TicketLauncher())
     await interaction.response.send_message("✅ Panel déployé !", ephemeral=True)
 
@@ -202,8 +225,8 @@ async def embed_cmd(interaction: discord.Interaction):
 @bot.tree.command(name="setup_recrutement", description="Panel de recrutement")
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_recru(interaction: discord.Interaction):
-    embed = discord.Embed(title="⭐ RECRUTEMENT STAFF", description="Postule pour rejoindre l'équipe !", color=0xff69b4)
+    embed = discord.Embed(title="⭐ RECRUTEMENT STAFF", description="Clique ci-dessous pour postuler !", color=0xff69b4)
     await interaction.channel.send(embed=embed, view=RecrutementView())
-    await interaction.response.send_message("Panel envoyé.", ephemeral=True)
+    await interaction.response.send_message("✅ Panel envoyé.", ephemeral=True)
 
 bot.run(TOKEN)
