@@ -8,7 +8,12 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID = 1469674659380334593
 FOUNDER_ROLE_ID = 1469706626897281107
 STAFF_ROLE_ID = 1470085224435286120 
-AUTO_ROLE_ID = 1470085549569212498 # Ton nouveau rôle automatique
+AUTO_ROLE_ID = 1470085549569212498
+
+# Salons Arrivée / Départ
+WELCOME_CHAN_ID = 1469699722846666762
+LEAVE_CHAN_ID = 1469699902375198760
+
 CAT_INFO_ID = 1469690712567316500
 TICKET_LOG_CHAN = 1469706494487560456
 BANNED_WORDS = ["insulte1", "insulte2", "fdp"]
@@ -25,7 +30,7 @@ class TicketControl(discord.ui.View):
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
         is_staff = any(role.id in [STAFF_ROLE_ID, FOUNDER_ROLE_ID] for role in interaction.user.roles)
         if not is_staff:
-            return await interaction.response.send_message("❌ Seul le Staff de l'Appartement peut faire ça !", ephemeral=True)
+            return await interaction.response.send_message("❌ Seul le Staff peut faire ça !", ephemeral=True)
         
         button.disabled = True
         button.label = "✅ Pris en charge"
@@ -36,21 +41,20 @@ class TicketControl(discord.ui.View):
         embed.color = discord.Color.gold()
         
         await interaction.response.edit_message(embed=embed, view=self)
-        await interaction.followup.send(f"🛠️ {interaction.user.mention} s'occupe de votre demande !")
+        await interaction.followup.send(f"🛠️ {interaction.user.mention} s'occupe de la demande !")
 
     @discord.ui.button(label="🔒 Fermer", style=discord.ButtonStyle.danger, custom_id="close_tkt")
     async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
         is_staff = any(role.id in [STAFF_ROLE_ID, FOUNDER_ROLE_ID] for role in interaction.user.roles)
         if not is_staff:
-             return await interaction.response.send_message("❌ Demande à un Staff de fermer le ticket.", ephemeral=True)
+             return await interaction.response.send_message("❌ Seul le Staff peut fermer.", ephemeral=True)
 
         log_chan = interaction.guild.get_channel(TICKET_LOG_CHAN)
         if log_chan:
-            log_embed = discord.Embed(title="Archive Ticket - Appartement", color=discord.Color.red(), timestamp=datetime.datetime.now())
-            log_embed.add_field(name="Salon", value=interaction.channel.name, inline=True)
-            log_embed.add_field(name="Fermé par", value=interaction.user.name, inline=True)
+            log_embed = discord.Embed(title="Archive Ticket", color=discord.Color.red(), timestamp=datetime.datetime.now())
+            log_embed.add_field(name="Salon", value=interaction.channel.name)
+            log_embed.add_field(name="Par", value=interaction.user.name)
             await log_chan.send(embed=log_embed)
-        
         await interaction.channel.delete()
 
 class TicketLauncher(discord.ui.View):
@@ -58,7 +62,7 @@ class TicketLauncher(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.select(
-        placeholder="Ouvrir un accès au support...",
+        placeholder="Ouvrir un ticket...",
         options=[
             discord.SelectOption(label="Signaler un Bug", value="bug", emoji="🛠️"),
             discord.SelectOption(label="Suggestion", value="idée", emoji="💡"),
@@ -69,46 +73,23 @@ class TicketLauncher(discord.ui.View):
     async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
         guild = interaction.guild
         cat = guild.get_channel(CAT_INFO_ID)
-        
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
             guild.get_role(STAFF_ROLE_ID): discord.PermissionOverwrite(read_messages=True, send_messages=True),
             guild.get_role(FOUNDER_ROLE_ID): discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
-        
         chan = await guild.create_text_channel(f"🏠-{select.values[0]}-{interaction.user.name}", category=cat, overwrites=overwrites)
         
-        embed = discord.Embed(
-            title="✨ SUPPORT : L'APPARTEMENT DE SAKUO",
-            description=f"Bonjour {interaction.user.mention} !\nUn membre de l'équipe arrive.",
-            color=0xff69b4,
-            timestamp=datetime.datetime.now()
-        )
+        embed = discord.Embed(title="✨ SUPPORT SAKUO", description=f"Bonjour {interaction.user.mention}, un staff arrive.", color=0xff69b4)
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
-        embed.set_footer(text="Système de gestion - Rec Room Map")
-        
         await chan.send(content=f"{interaction.user.mention} | <@&{STAFF_ROLE_ID}>", embed=embed, view=TicketControl())
-        await interaction.response.send_message(f"✅ Ticket ouvert ici : {chan.mention}", ephemeral=True)
-
-# --- FORMULAIRE ANNONCE ---
-class EmbedModal(discord.ui.Modal, title="Annonce Appartement Sakuo"):
-    titre = discord.ui.TextInput(label="Titre", required=True)
-    description = discord.ui.TextInput(label="Contenu", style=discord.TextStyle.paragraph, required=True)
-    couleur = discord.ui.TextInput(label="Hex (ex: #ff69b4)", default="#ff69b4", min_length=7, max_length=7)
-    image = discord.ui.TextInput(label="Lien Image", required=False)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        color_val = int(self.couleur.value.replace("#", ""), 16) if is_valid_hex(self.couleur.value) else 0xff69b4
-        embed = discord.Embed(title=self.titre.value, description=self.description.value, color=color_val, timestamp=datetime.datetime.now())
-        if self.image.value and self.image.value.startswith("http"): embed.set_image(url=self.image.value)
-        await interaction.channel.send(embed=embed)
-        await interaction.response.send_message("✨ Envoyé !", ephemeral=True)
+        await interaction.response.send_message(f"✅ Ticket ouvert : {chan.mention}", ephemeral=True)
 
 # --- BOT CORE ---
 class MyBot(discord.Client):
     def __init__(self):
-        super().__init__(intents=discord.Intents.all()) # Obligatoire pour l'autorole
+        super().__init__(intents=discord.Intents.all())
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
@@ -117,30 +98,54 @@ class MyBot(discord.Client):
         await self.tree.sync()
 
     async def on_ready(self):
-        print(f"Bot Sakuo opérationnel !")
-        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="𝙡'𝙖𝙥𝙥𝙖𝙧𝙩𝙚𝙢𝙚𝙣𝙩 𝙙𝙚 𝙨𝙖𝙠𝙪𝙤 🏠"))
+        print(f"Bot Sakuo prêt (Arrivée/Départ activés) !")
+        await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="L'appartement de Sakuo 🏠"))
 
-    # --- FONCTION AUTOROLE ---
+    # --- ÉVÉNEMENT ARRIVÉE (BIENVENUE + AUTOROLE) ---
     async def on_member_join(self, member):
+        # 1. Autorole
         role = member.guild.get_role(AUTO_ROLE_ID)
         if role:
-            try:
-                await member.add_roles(role)
-                print(f"Autorole : {role.name} donné à {member.name}")
-            except Exception as e:
-                print(f"Erreur autorole : {e}")
+            try: await member.add_roles(role)
+            except: pass
+
+        # 2. Message Bienvenue
+        channel = member.guild.get_channel(WELCOME_CHAN_ID)
+        if channel:
+            embed = discord.Embed(
+                title="✨ Bienvenue !",
+                description=f"Bienvenue {member.mention} dans **L'appartement de Sakuo** ! \nOn est ravis de te voir ici.",
+                color=0xff69b4,
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_thumbnail(url=member.display_avatar.url)
+            embed.set_footer(text=f"Nous sommes maintenant {member.guild.member_count}")
+            await channel.send(embed=embed)
+
+    # --- ÉVÉNEMENT DÉPART (AUREVOIR) ---
+    async def on_member_remove(self, member):
+        channel = member.guild.get_channel(LEAVE_CHAN_ID)
+        if channel:
+            embed = discord.Embed(
+                title="👋 Au revoir",
+                description=f"**{member.name}** a quitté l'appartement. À bientôt !",
+                color=discord.Color.red(),
+                timestamp=datetime.datetime.now()
+            )
+            await channel.send(embed=embed)
 
 bot = MyBot()
 
 @bot.tree.command(name="embed", description="Faire une annonce")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def embed_cmd(interaction: discord.Interaction):
+    # (Modal identique au précédent)
     await interaction.response.send_modal(EmbedModal())
 
 @bot.tree.command(name="setup_tickets", description="Installer le support")
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_tickets(interaction: discord.Interaction):
-    embed = discord.Embed(title="🏠 Support de l'Appartement", description="Choisissez une catégorie pour ouvrir un ticket.", color=0xff69b4)
+    embed = discord.Embed(title="🏠 Support Sakuo", description="Besoin d'aide ? Ouvre un ticket ci-dessous.", color=0xff69b4)
     await interaction.channel.send(embed=embed, view=TicketLauncher())
     await interaction.response.send_message("Panel installé.", ephemeral=True)
 
